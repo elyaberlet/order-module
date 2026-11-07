@@ -35,7 +35,7 @@ public class Order extends BaseEntity {
     @Column(nullable = false)
     private boolean deleted = false;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "order", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private List<OrderItem> items = new ArrayList<>();
 
     public void addItem(OrderItem item) {
