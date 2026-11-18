@@ -58,7 +58,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Code analysis (SonarCloud)
-        if: ${{ env.SONAR_TOKEN != '' }}
+        if: ${{ env.SONAR_TOKEN != '' && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') }}
         run: >
           mvn -B -ntp
           org.sonarsource.scanner.maven:sonar-maven-plugin:5.0.0.4389:sonar
