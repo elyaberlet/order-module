@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: order-service
+
+  profiles:
+    default: local
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        default_batch_fetch_size: 50
+
+  data:
+    web:
+      pageable:
+        max-page-size: 100
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+
+user-service:
+  url: ${USER_SERVICE_URL:http://localhost:8081}
+
+auth-service:
+  url: ${AUTH_SERVICE_URL:http://localhost:8082}
+
+service-account:
+  username: ${SERVICE_ACCOUNT_USERNAME}
+  password: ${SERVICE_ACCOUNT_PASSWORD}
