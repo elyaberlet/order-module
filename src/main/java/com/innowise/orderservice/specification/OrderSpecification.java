@@ -1,4 +1,4 @@
-package com.innowise.orderservice.repository;
+package com.innowise.orderservice.specification;
 
 import com.innowise.orderservice.entity.Order;
 import com.innowise.orderservice.entity.OrderStatus;

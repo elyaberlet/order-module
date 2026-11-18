@@ -1,3 +1,4 @@
+
 package com.innowise.orderservice.entity;
 
 import jakarta.persistence.*;
@@ -25,6 +26,9 @@ public class Order extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "user_email", nullable = false)
+    private String userEmail;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private OrderStatus status = OrderStatus.CREATED;
@@ -35,7 +39,10 @@ public class Order extends BaseEntity {
     @Column(nullable = false)
     private boolean deleted = false;
 
-    @OneToMany(mappedBy = "order", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @OneToMany(
+            mappedBy = "order",
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE}
+    )
     private List<OrderItem> items = new ArrayList<>();
 
     public void addItem(OrderItem item) {

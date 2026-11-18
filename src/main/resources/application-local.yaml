@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5434/orderdb}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+user-service:
+  url: ${USER_SERVICE_URL:http://localhost:8081}
