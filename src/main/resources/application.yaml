@@ -30,7 +30,6 @@ user-service:
 auth-service:
   url: ${AUTH_SERVICE_URL:http://localhost:8082}
 
-# Учётка с ролью SERVICE для вызовов User Service
 service-account:
   username: ${SERVICE_ACCOUNT_USERNAME}
   password: ${SERVICE_ACCOUNT_PASSWORD}

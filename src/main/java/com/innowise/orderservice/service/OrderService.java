@@ -16,6 +16,7 @@ import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
 import com.innowise.orderservice.specification.OrderSpecification;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -41,8 +43,11 @@ public class OrderService {
 
     @Transactional
     public OrderResponse create(CreateOrderRequest request) {
+        log.info("Creating order for user email: {}", request.email());
+
         UserDto user = userClient.getUserByEmail(request.email());
         if (user == null) {
+            log.error("User Service returned null for email: {}", request.email());
             throw new UserServiceUnavailableException("User Service is currently unavailable");
         }
 
@@ -61,16 +66,22 @@ public class OrderService {
         }
         order.setTotalPrice(total);
 
-        return orderMapper.toResponse(orderRepository.save(order), user);
+        Order savedOrder = orderRepository.save(order);
+        log.info("Order created successfully with id: {}", savedOrder.getId());
+
+        return orderMapper.toResponse(savedOrder, user);
     }
 
     @Transactional(readOnly = true)
     public OrderResponse getById(Long id) {
+        log.debug("Fetching order with id: {}", id);
         return toResponse(findOrderById(id), new HashMap<>());
     }
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getByUserId(Long userId) {
+        log.debug("Fetching orders for user id: {}", userId);
+
         Map<String, Optional<UserDto>> users = new HashMap<>();
         return orderRepository.findByUserId(userId).stream()
                 .map(order -> toResponse(order, users))
@@ -84,6 +95,9 @@ public class OrderService {
             List<OrderStatus> statuses,
             Pageable pageable
     ) {
+        log.debug("Fetching orders with filters: createdFrom={}, createdTo={}, statuses={}",
+                createdFrom, createdTo, statuses);
+
         Specification<Order> specification = Specification
                 .where(OrderSpecification.createdFrom(createdFrom))
                 .and(OrderSpecification.createdTo(createdTo))
@@ -96,21 +110,29 @@ public class OrderService {
 
     @Transactional
     public OrderResponse update(Long id, UpdateOrderRequest request) {
+        log.info("Updating order with id: {}", id);
+
         Order order = findOrderById(id);
         orderMapper.updateEntity(request, order);
         orderRepository.flush();
+
+        log.info("Order updated successfully with id: {}", id);
         return toResponse(order, new HashMap<>());
     }
 
     @Transactional
     public void delete(Long id) {
+        log.info("Deleting order with id: {}", id);
+
         orderRepository.delete(findOrderById(id));
+        log.info("Order deleted successfully with id: {}", id);
     }
 
     private OrderResponse toResponse(Order order, Map<String, Optional<UserDto>> users) {
         UserDto user = users
                 .computeIfAbsent(order.getUserEmail(), this::resolveUser)
                 .orElse(null);
+
         return orderMapper.toResponse(order, user);
     }
 
@@ -118,13 +140,17 @@ public class OrderService {
         try {
             return Optional.ofNullable(userClient.getUserByEmail(email));
         } catch (ResourceNotFoundException exception) {
+            log.warn("User with email {} was not found in User Service", email);
             return Optional.empty();
         }
     }
 
     private Order findOrderById(Long id) {
         return orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Order " + id + " not found"));
+                .orElseThrow(() -> {
+                    log.warn("Order with id {} not found", id);
+                    return new ResourceNotFoundException("Order " + id + " not found");
+                });
     }
 
     private List<OrderItemRequest> mergeDuplicateLines(List<OrderItemRequest> lines) {
@@ -132,6 +158,7 @@ public class OrderService {
         for (OrderItemRequest line : lines) {
             quantities.merge(line.itemId(), line.quantity(), Integer::sum);
         }
+
         return quantities.entrySet().stream()
                 .map(entry -> new OrderItemRequest(entry.getKey(), entry.getValue()))
                 .toList();
@@ -145,10 +172,15 @@ public class OrderService {
             found.put(item.getId(), item);
         }
 
-        List<Long> missing = ids.stream().filter(id -> !found.containsKey(id)).toList();
+        List<Long> missing = ids.stream()
+                .filter(id -> !found.containsKey(id))
+                .toList();
+
         if (!missing.isEmpty()) {
+            log.warn("Items not found: {}", missing);
             throw new ResourceNotFoundException("Items not found: " + missing);
         }
+
         return found;
     }
 }
