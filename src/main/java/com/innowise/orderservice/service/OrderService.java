@@ -10,7 +10,6 @@ import com.innowise.orderservice.entity.Item;
 import com.innowise.orderservice.entity.Order;
 import com.innowise.orderservice.entity.OrderStatus;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
-import com.innowise.orderservice.exception.UserServiceUnavailableException;
 import com.innowise.orderservice.mapper.OrderMapper;
 import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
@@ -46,10 +45,6 @@ public class OrderService {
         log.info("Creating order for user email: {}", request.email());
 
         UserDto user = userClient.getUserByEmail(request.email());
-        if (user == null) {
-            log.error("User Service returned null for email: {}", request.email());
-            throw new UserServiceUnavailableException("User Service is currently unavailable");
-        }
 
         List<OrderItemRequest> lines = mergeDuplicateLines(request.items());
         Map<Long, Item> itemsById = loadItems(lines);

@@ -53,10 +53,8 @@ class OrderServiceTest {
     @InjectMocks
     private OrderService orderService;
 
-
     @Test
     void create_shouldCalculateTotalPriceAndSaveOrder() {
-        // Arrange
         String email = "customer@example.com";
 
         UserDto user = new UserDto(
@@ -113,10 +111,8 @@ class OrderServiceTest {
         when(orderMapper.toResponse(any(Order.class), eq(user)))
                 .thenReturn(expectedResponse);
 
-        // Act
         OrderResponse result = orderService.create(request);
 
-        // Assert
         ArgumentCaptor<Order> orderCaptor =
                 ArgumentCaptor.forClass(Order.class);
 
@@ -132,7 +128,6 @@ class OrderServiceTest {
         );
 
         assertEquals(2, savedOrder.getItems().size());
-
         assertEquals(2, savedOrder.getItems().get(0).getQuantity());
         assertEquals(3, savedOrder.getItems().get(1).getQuantity());
 
@@ -149,10 +144,8 @@ class OrderServiceTest {
                 .toOrderItem(any(OrderItemRequest.class), any(Item.class));
     }
 
-
     @Test
     void create_shouldThrowExceptionWhenItemDoesNotExist() {
-        // Arrange
         String email = "customer@example.com";
 
         UserDto user = new UserDto(
@@ -172,7 +165,6 @@ class OrderServiceTest {
         when(itemRepository.findAllById(List.of(999L)))
                 .thenReturn(List.of());
 
-        // Act & Assert
         assertThrows(
                 ResourceNotFoundException.class,
                 () -> orderService.create(request)
@@ -183,10 +175,8 @@ class OrderServiceTest {
         verify(orderRepository, never()).save(any(Order.class));
     }
 
-
     @Test
-    void create_shouldThrowExceptionWhenUserServiceReturnsNull() {
-        // Arrange
+    void create_shouldThrowExceptionWhenUserServiceIsUnavailable() {
         String email = "customer@example.com";
 
         CreateOrderRequest request = new CreateOrderRequest(
@@ -194,23 +184,23 @@ class OrderServiceTest {
                 List.of(new OrderItemRequest(1L, 1))
         );
 
-        when(userClient.getUserByEmail(email)).thenReturn(null);
+        when(userClient.getUserByEmail(email))
+                .thenThrow(new UserServiceUnavailableException(
+                        "User Service is currently unavailable"
+                ));
 
-        // Act & Assert
         assertThrows(
                 UserServiceUnavailableException.class,
                 () -> orderService.create(request)
         );
 
         verify(userClient).getUserByEmail(email);
-        verify(itemRepository, never()).findAllById(any());
+        verifyNoInteractions(itemRepository);
         verify(orderRepository, never()).save(any(Order.class));
     }
 
-
     @Test
     void create_shouldMergeDuplicateItems() {
-        // Arrange
         String email = "customer@example.com";
 
         UserDto user = new UserDto(
@@ -256,10 +246,8 @@ class OrderServiceTest {
         when(orderMapper.toResponse(any(Order.class), eq(user)))
                 .thenReturn(mock(OrderResponse.class));
 
-        // Act
         orderService.create(request);
 
-        // Assert
         ArgumentCaptor<Order> captor =
                 ArgumentCaptor.forClass(Order.class);
 
@@ -269,7 +257,6 @@ class OrderServiceTest {
 
         assertEquals(1, savedOrder.getItems().size());
         assertEquals(5, savedOrder.getItems().get(0).getQuantity());
-
         assertEquals(
                 new BigDecimal("125.00"),
                 savedOrder.getTotalPrice()
@@ -280,10 +267,8 @@ class OrderServiceTest {
                 .toOrderItem(any(OrderItemRequest.class), eq(item));
     }
 
-
     @Test
     void getById_shouldReturnOrderWhenOrderExists() {
-        // Arrange
         Long orderId = 1L;
         String email = "customer@example.com";
 
@@ -309,10 +294,8 @@ class OrderServiceTest {
         when(orderMapper.toResponse(order, user))
                 .thenReturn(expectedResponse);
 
-        // Act
         OrderResponse result = orderService.getById(orderId);
 
-        // Assert
         assertSame(expectedResponse, result);
 
         verify(orderRepository).findById(orderId);
@@ -320,16 +303,13 @@ class OrderServiceTest {
         verify(orderMapper).toResponse(order, user);
     }
 
-
     @Test
     void getById_shouldThrowExceptionWhenOrderDoesNotExist() {
-        // Arrange
         Long orderId = 999L;
 
         when(orderRepository.findById(orderId))
                 .thenReturn(Optional.empty());
 
-        // Act & Assert
         assertThrows(
                 ResourceNotFoundException.class,
                 () -> orderService.getById(orderId)
@@ -340,10 +320,8 @@ class OrderServiceTest {
         verifyNoInteractions(orderMapper);
     }
 
-
     @Test
     void getByUserId_shouldReturnUserOrdersAndCacheUserLookup() {
-        // Arrange
         Long userId = 10L;
         String email = "customer@example.com";
 
@@ -379,27 +357,20 @@ class OrderServiceTest {
         when(orderMapper.toResponse(secondOrder, user))
                 .thenReturn(secondResponse);
 
-        // Act
         List<OrderResponse> result = orderService.getByUserId(userId);
 
-        // Assert
         assertEquals(2, result.size());
         assertSame(firstResponse, result.get(0));
         assertSame(secondResponse, result.get(1));
 
         verify(orderRepository).findByUserId(userId);
-
-        // User Service is called only once for the same email.
         verify(userClient, times(1)).getUserByEmail(email);
-
         verify(orderMapper).toResponse(firstOrder, user);
         verify(orderMapper).toResponse(secondOrder, user);
     }
 
-
     @Test
     void getAll_shouldReturnPagedOrders() {
-        // Arrange
         String email = "customer@example.com";
 
         Order order = new Order();
@@ -430,7 +401,6 @@ class OrderServiceTest {
         when(orderMapper.toResponse(order, user))
                 .thenReturn(expectedResponse);
 
-        // Act
         Page<OrderResponse> result = orderService.getAll(
                 null,
                 null,
@@ -438,7 +408,6 @@ class OrderServiceTest {
                 pageable
         );
 
-        // Assert
         assertEquals(1, result.getTotalElements());
         assertEquals(1, result.getContent().size());
         assertSame(expectedResponse, result.getContent().get(0));
@@ -452,10 +421,8 @@ class OrderServiceTest {
         verify(orderMapper).toResponse(order, user);
     }
 
-
     @Test
     void update_shouldUpdateExistingOrder() {
-        // Arrange
         Long orderId = 1L;
         String email = "customer@example.com";
 
@@ -471,17 +438,15 @@ class OrderServiceTest {
                 .thenReturn(Optional.of(order));
 
         when(userClient.getUserByEmail(email))
-                .thenReturn(null);
+                .thenThrow(new ResourceNotFoundException("User not found"));
 
         when(orderMapper.toResponse(
                 eq(order),
                 ArgumentMatchers.<UserDto>isNull()
         )).thenReturn(expectedResponse);
 
-        // Act
         OrderResponse result = orderService.update(orderId, request);
 
-        // Assert
         assertSame(expectedResponse, result);
 
         verify(orderRepository).findById(orderId);
@@ -494,10 +459,8 @@ class OrderServiceTest {
         );
     }
 
-
     @Test
     void delete_shouldDeleteExistingOrder() {
-        // Arrange
         Long orderId = 1L;
 
         Order order = new Order();
@@ -506,24 +469,19 @@ class OrderServiceTest {
         when(orderRepository.findById(orderId))
                 .thenReturn(Optional.of(order));
 
-        // Act
         orderService.delete(orderId);
 
-        // Assert
         verify(orderRepository).findById(orderId);
         verify(orderRepository).delete(order);
     }
 
-
     @Test
     void delete_shouldThrowExceptionWhenOrderDoesNotExist() {
-        // Arrange
         Long orderId = 999L;
 
         when(orderRepository.findById(orderId))
                 .thenReturn(Optional.empty());
 
-        // Act & Assert
         assertThrows(
                 ResourceNotFoundException.class,
                 () -> orderService.delete(orderId)
@@ -533,10 +491,8 @@ class OrderServiceTest {
         verify(orderRepository, never()).delete(any(Order.class));
     }
 
-
     @Test
     void update_shouldThrowExceptionWhenOrderDoesNotExist() {
-        // Arrange
         Long orderId = 999L;
 
         UpdateOrderRequest request = mock(UpdateOrderRequest.class);
@@ -544,7 +500,6 @@ class OrderServiceTest {
         when(orderRepository.findById(orderId))
                 .thenReturn(Optional.empty());
 
-        // Act & Assert
         assertThrows(
                 ResourceNotFoundException.class,
                 () -> orderService.update(orderId, request)
@@ -555,10 +510,8 @@ class OrderServiceTest {
         verifyNoInteractions(userClient);
     }
 
-
     @Test
     void getById_shouldPropagateExceptionWhenUserServiceIsUnavailable() {
-        // Arrange
         Long orderId = 1L;
         String email = "customer@example.com";
 
@@ -571,11 +524,9 @@ class OrderServiceTest {
 
         when(userClient.getUserByEmail(email))
                 .thenThrow(new UserServiceUnavailableException(
-                        "User Service is currently unavailable",
-                        (Throwable) null
+                        "User Service is currently unavailable"
                 ));
 
-        // Act & Assert
         assertThrows(
                 UserServiceUnavailableException.class,
                 () -> orderService.getById(orderId)
@@ -586,10 +537,8 @@ class OrderServiceTest {
         verifyNoInteractions(orderMapper);
     }
 
-
     @Test
     void getById_shouldReturnOrderWhenUserDoesNotExist() {
-        // Arrange
         Long orderId = 1L;
         String email = "missing@example.com";
 
@@ -610,10 +559,8 @@ class OrderServiceTest {
                 ArgumentMatchers.<UserDto>isNull()
         )).thenReturn(expectedResponse);
 
-        // Act
         OrderResponse result = orderService.getById(orderId);
 
-        // Assert
         assertSame(expectedResponse, result);
 
         verify(orderRepository).findById(orderId);

@@ -2,8 +2,8 @@ package com.innowise.orderservice.client;
 
 import com.innowise.orderservice.dto.response.UserDto;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.innowise.orderservice.exception.UserServiceUnavailableException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.client.circuitbreaker.CircuitBreakerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
@@ -11,10 +11,9 @@ import org.springframework.web.client.RestClient;
 
 import java.util.Optional;
 
+@Slf4j
 @Component
 public class UserClient {
-
-    private static final Logger log = LoggerFactory.getLogger(UserClient.class);
 
     private final RestClient restClient;
     private final CircuitBreakerFactory<?, ?> circuitBreakerFactory;
@@ -36,27 +35,29 @@ public class UserClient {
                 this::fallback
         );
 
-        if (result == null) {
-            return null;
-        }
-        return result.orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return result.orElseThrow(
+                () -> new ResourceNotFoundException("User not found")
+        );
     }
 
     private Optional<UserDto> fetch(String email, boolean retried) {
         String token = tokenProvider.get();
+
         try {
             return Optional.ofNullable(
                     restClient.get()
                             .uri("/api/users/email/{email}", email)
                             .headers(headers -> headers.setBearerAuth(token))
                             .retrieve()
-                            .body(UserDto.class));
+                            .body(UserDto.class)
+            );
         } catch (HttpClientErrorException.NotFound exception) {
             return Optional.empty();
         } catch (HttpClientErrorException.Unauthorized exception) {
             if (retried) {
                 throw exception;
             }
+
             tokenProvider.invalidate();
             return fetch(email, true);
         }
@@ -64,6 +65,10 @@ public class UserClient {
 
     private Optional<UserDto> fallback(Throwable throwable) {
         log.warn("User Service call failed: {}", throwable.toString());
-        return null;
+
+        throw new UserServiceUnavailableException(
+                "User Service is currently unavailable",
+                throwable
+        );
     }
 }
